@@ -857,71 +857,88 @@ public class App {
   * @return The new active Pokemon after the turn's action. Returns the original Pokemon if no change or the action failed.
   */
  private static Pokemon performPlayerTurn(Scanner scanner, Pokemon currentP1, Pokemon currentP2, List<Pokemon> p1Team) throws InterruptedException {
-  System.out.println("\n--- " + currentP1.name + "'s Turn (P1) ---");
-  currentP1.showStats(true);
-  currentP2.showStats(false);
-  System.out.println("-------------------------------------");
-  
-  System.out.println("Choose action category:");
-  System.out.println(" 1. Attack");
-  System.out.println(" 2. Bag");
-  System.out.println(" 3. Protect (1-turn shield)");
-  System.out.println(" 4. Mega Evolve");
-  System.out.println(" 5. Swap Pokémon");
+    System.out.println("\n--- " + currentP1.name + "'s Turn (P1) ---");
+    currentP1.showStats(true);
+    currentP2.showStats(false);
+    System.out.println("-------------------------------------");
 
-  int choice;
-  boolean actionSuccessful = false;
-  Pokemon activeP1 = currentP1; // The Pokémon that finishes the turn
+    boolean actionSuccessful = false;
+    Pokemon activeP1 = currentP1;
 
-  while (!actionSuccessful) {
-   System.out.print("Enter choice (1-5): ");
-   if (scanner.hasNextInt()) {
-    choice = scanner.nextInt();
-    scanner.nextLine();
+    while (!actionSuccessful) {
 
-    switch (choice) {
-     case 1: // Attack Menu
-        actionSuccessful = handleAttackMenu(scanner, activeP1, currentP2);
-        break;
-     
-     case 2: // Bag Menu
-        actionSuccessful = handleBagMenu(scanner, activeP1);
-        break;
-        
-     case 3: // Protect
-      if (activeP1.useProtect()) { // Check return value for success
-       actionSuccessful = true; 
-      }
-      break;
-      
-     case 4: // Mega Evolve
-      activeP1.lastActionWasProtect = false; // Reset Protect flag
-      activeP1.megaEvolve();
-      if (activeP1.isMegaEvolved) {
-        actionSuccessful = true;
-      }
-      break;
-      
-     case 5: // Swap
-      // handlePlayerSwap returns the NEW active Pokemon if successful
-      Pokemon nextP = handlePlayerSwap(scanner, activeP1, p1Team);
-      if (nextP != activeP1) {
-       // Update the references if a swap occurred
-       activeP1 = nextP;
-       actionSuccessful = true;
-      }
-      break;
-      
-     default:
-      System.out.println("Invalid choice. Try again.");
+        // ADDED: This prints the main menu every loop
+        System.out.println("\nChoose action category:");
+        System.out.println(" 1. Attack");
+        System.out.println(" 2. Bag");
+        System.out.println(" 3. Protect (1-turn shield)");
+        System.out.println(" 4. Mega Evolve");
+        System.out.println(" 5. Swap Pokémon");
+
+        System.out.print("Enter choice (1-5): ");
+
+        int choice;
+        if (scanner.hasNextInt()) {
+            choice = scanner.nextInt();
+            scanner.nextLine();
+
+            switch (choice) {
+
+                case 1: // Attack Menu
+                    boolean attackSuccess = handleAttackMenu(scanner, activeP1, currentP2);
+                    if (!attackSuccess) {
+                        // ADDED: Feedback for the player
+                        System.out.println("\nReturned to Main Menu...");
+                    } else {
+                        actionSuccessful = true;
+                    }
+                    break;
+
+                case 2: // Bag Menu
+                    boolean bagSuccess = handleBagMenu(scanner, activeP1);
+                    if (!bagSuccess) {
+                        // ADDED: Feedback message
+                        System.out.println("\nReturned to Main Menu...");
+                    } else {
+                        actionSuccessful = true;
+                    }
+                    break;
+
+                case 3: // Protect
+                    if (activeP1.useProtect()) {
+                        actionSuccessful = true;
+                    }
+                    break;
+
+                case 4: // Mega Evolve
+                    activeP1.lastActionWasProtect = false;
+                    activeP1.megaEvolve();
+                    if (activeP1.isMegaEvolved) {
+                        actionSuccessful = true;
+                    }
+                    break;
+
+                case 5: // Swap
+                    Pokemon nextP = handlePlayerSwap(scanner, activeP1, p1Team);
+                    if (nextP != activeP1) {
+                        activeP1 = nextP;
+                        actionSuccessful = true;
+                    }
+                    break;
+
+                default:
+                    System.out.println("Invalid choice. Try again.");
+            }
+
+        } else {
+            scanner.next();
+            System.out.println("Invalid input. Try again.");
+        }
     }
-   } else {
-    scanner.next();
-    System.out.println("Invalid input. Try again.");
-   }
-  }
-  return activeP1; // Return the (potentially new) active Pokemon
- }
+
+    return activeP1;
+}
+
 
  private static Pokemon performAITurn(Pokemon currentP2, Pokemon currentP1, List<Pokemon> p2Team, Random random) throws InterruptedException {
   System.out.println("\n" + currentP2.name + "'s Turn (Automatic)!");
