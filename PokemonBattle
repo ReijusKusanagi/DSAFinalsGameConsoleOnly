@@ -1,757 +1,1075 @@
 import java.util.Scanner;
 import java.util.Random;
-
-class Pokemon {
-
-   public String name; // Changed to public
-   public int health; // Changed to public
-   public int maxHealth; // Changed to public
-   public int stamina; // Changed to public
-   public int maxStamina; // Changed to public
-   public String type; // Changed to public
-   public String status; // Changed to public
-   public int duration; // Changed to public
-  
-   // NEW: Potion and Guard tracking - Changed to public
-   public int healthPotionUses;
-   public int staminaPotionUses;
-   private final int MAX_HP_USES = 2; // Kept private as it's a constant
-   private final int MAX_STAMINA_USES = 2; // Kept private as it's a constant
-   public boolean isProtected; // Changed to public
-   public int turnsSinceProtected; // Changed to public
-
-
-
-
-   Pokemon(String name, int health, int stamina, String type, String status) {
-       this.name = name;
-       this.health = health;
-       this.maxHealth = health;
-       this.stamina = stamina;
-       this.maxStamina = stamina;
-       this.type = type;
-       this.status = status;
-       this.duration = 0;
-      
-       // Initialize new variables
-       this.healthPotionUses = 0;
-       this.staminaPotionUses = 0;
-       this.isProtected = false;
-       this.turnsSinceProtected = 2;
-      
-       System.out.println(this.name + " is captured!");
-   }
-  
-   // Getter for turnsSinceProtected (Used by the AI, kept for clean logic)
-   public int getTurnsSinceProtected() { return turnsSinceProtected; }
-   public int getMaxHpUses() { return MAX_HP_USES; } // Added public getter
-   public int getMaxStaminaUses() { return MAX_STAMINA_USES; } // Added public getter
-
-
-  
-   public void showStats() {
-       String prot = this.isProtected ? " (PROTECTED)" : "";
-       System.out.println(this.name + " -> HP: [" + this.health + "/" + this.maxHealth + "] | Stamina: [" + this.stamina + "/" + this.maxStamina + "] | Status: " + this.status + " (D:" + this.duration + ")" + prot
-                          + " | HP Potions: " + (MAX_HP_USES - this.healthPotionUses) + " | Stamina Potions: " + (MAX_STAMINA_USES - this.staminaPotionUses));
-   }
-
-
-
-
-   int applyStatusEffects(Pokemon target, int baseDamage) {
-
-
-
-
-       if (this.duration >= 3) {
-           this.status = "normal";
-           this.duration = 0;
-           System.out.println(this.name + " is now in normal state.");
-       }
-
-
-
-
-       if (this.status.equals("chilled")) {
-           System.out.println(this.name + " is chilled! Damage is reduced this turn.");
-           this.duration += 1;
-           baseDamage -= 10;
-       }
-
-
-
-
-       if (target.status.equals("poisoned")) {
-           target.health -= 10;
-           target.duration += 1;
-           System.out.println("The poison weakens " + target.name + "! Extra damage dealt.");
-       }
-
-
-
-
-       if (target.status.equals("burned")) {
-           target.health -= 10;
-           target.duration += 1;
-           System.out.println("The burn weakens " + target.name + "! Extra damage dealt.");
-       }
-
-
-
-
-       return baseDamage;
-   }
-
-
-
-
-   void takeDamage(int rawDamage, String attackingType) {
-       // Check for Protect status
-       if (this.isProtected) {
-           System.out.println(this.name + " blocked the attack with Protect!");
-           this.isProtected = false; // Protection wears off after one use
-           return;
-       }
-      
-       double damageMultiplier = 1.0;
-      
-       if (attackingType.equals("Fire")) {
-           if (this.type.equals("Grass")) damageMultiplier = 1.25;
-           else if (this.type.equals("Water")) damageMultiplier = 0.75;
-       } else if (attackingType.equals("Water")) {
-           if (this.type.equals("Fire")) damageMultiplier = 1.25;
-           else if (this.type.equals("Grass")) damageMultiplier = 0.75;
-       } else if (attackingType.equals("Grass")) {
-           if (this.type.equals("Water")) damageMultiplier = 1.25;
-           else if (this.type.equals("Fire")) damageMultiplier = 0.75;
-       }
-      
-       int damage = (int) (rawDamage * damageMultiplier);
-      
-       System.out.print(this.name + " took " + damage + " damage.");
-       if (damageMultiplier > 1.0) {
-           System.out.println(" It was super effective!");
-       } else if (damageMultiplier < 1.0) {
-           System.out.println(" It was not very effective.");
-       } else {
-           System.out.println();
-       }
-      
-       this.health -= damage;
-       if (this.health < 0) this.health = 0;
-   }
-
-
-
-
-   void tackle(Pokemon target) {
-       if (target.health <= 0) {
-           System.out.println(target.name + " has already fainted. Tackle skill failed.");
-           return;
-       }
-      
-       int staminaGained = 20;
-       // Stamina rule updated: only prevents gain if at MAX
-       if (this.stamina >= this.maxStamina) {
-           this.stamina = this.maxStamina;
-           System.out.println(this.name + " has full stamina (" + this.maxStamina + "/" + this.maxStamina + "), no stamina gained.");
-       } else {
-            this.stamina += staminaGained;
-            if (this.stamina > this.maxStamina) this.stamina = this.maxStamina;
-            System.out.println(this.name + " gained " + staminaGained + " stamina points.");
-       }
-
-
-
-
-       int damage = 40;
-       System.out.println(this.name + " used tackle on " + target.name);
-      
-       target.takeDamage(damage, "normal");
-
-
-
-
-       if (target.health <= 0) System.out.println(target.name + " fainted!");
-   }
-
-
-  
-   // --- SKILL 1 (Light Attack | Cost: 40) ---
-   void skill1(Pokemon target) {
-       int damage = 30;
-       int staminaCost = 40;
-       String attackType = this.type;
-      
-       if (target.health <= 0) {
-           System.out.println(target.name + " has already fainted. Skill 1 failed.");
-           return;
-       }
-       damage = applyStatusEffects(target, damage);
-      
-       if (this.stamina < staminaCost) {
-           System.out.println(this.name + " does not have enough stamina to use Skill 1 (Need " + staminaCost + ").");
-           System.out.println(this.name + "'s current stamina is at " + this.stamina + " points.");
-           return;
-       }
-      
-       this.stamina -= staminaCost;
-       System.out.println(this.name + " lost " + staminaCost + " stamina points.");
-
-
-       switch (this.name) {
-           case "Charmander": System.out.println(this.name + " used Flame Thrower on " + target.name); break;
-           case "Squirtle": System.out.println(this.name + " used Water Gun on " + target.name); break;
-           case "Bulbasaur": System.out.println(this.name + " used Vine Whip on " + target.name); break;
-           case "Ninetales": System.out.println(this.name + " used Quick Attack on " + target.name); break;
-           case "Arcanine": System.out.println(this.name + " used Fire Fang on " + target.name); break;
-           case "Blastoise": System.out.println(this.name + " used Hydro Pump on " + target.name); break;
-           case "Lapras": System.out.println(this.name + " used Ice Beam on " + target.name); break;
-           case "Starmie": System.out.println(this.name + " used Rapid Spin on " + target.name); break;
-           case "Venusaur": System.out.println(this.name + " used Petal Dance on " + target.name); break;
-           default: System.out.println(this.name + " used a light attack on " + target.name);
-       }
-      
-       target.takeDamage(damage, attackType);
-      
-       if (target.health <= 0) System.out.println(target.name + " fainted!");
-   }
-
-
-   // --- SKILL 2 (Medium Attack | Cost: 50) ---
-   void skill2(Pokemon target) {
-       int damage = 30;
-       int staminaCost = 50;
-       String attackType = this.type;
-      
-       if (target.health <= 0) {
-           System.out.println(target.name + " has already fainted. Skill failed.");
-           return;
-       }
-      
-       damage = applyStatusEffects(target, damage);
-      
-       if (this.stamina < staminaCost) {
-           System.out.println(this.name + " does not have enough stamina to use Skill 2 (Need " + staminaCost + ").");
-           System.out.println(this.name + "'s current stamina is at " + this.stamina + " points.");
-           return;
-       }
-      
-       this.stamina -= staminaCost;
-       System.out.println(this.name + " lost " + staminaCost + " stamina points.");
-
-
-       switch (this.name) {
-           case "Charmander": System.out.println(this.name + " used Fire Spin on " + target.name); break;
-           case "Squirtle": System.out.println(this.name + " used Water Pulse on " + target.name); break;
-           case "Bulbasaur": System.out.println(this.name + " used Razor Leaf on " + target.name); break;
-           case "Ninetales": System.out.println(this.name + " used Will-O-Wisp on " + target.name); break;
-           case "Arcanine": System.out.println(this.name + " used Extreme Speed on " + target.name); break;
-           case "Blastoise": System.out.println(this.name + " used Skull Bash on " + target.name); break;
-           case "Lapras": System.out.println(this.name + " used Confuse Ray on " + target.name); break;
-           case "Starmie": System.out.println(this.name + " used Psychic on " + target.name); break;
-           case "Venusaur": System.out.println(this.name + " used Giga Drain on " + target.name); break;
-           default: System.out.println(this.name + " used a medium attack on " + target.name);
-       }
-      
-       target.takeDamage(damage, attackType);
-      
-       if (target.health <= 0) System.out.println(target.name + " fainted!");
-   }
-
-
-
-
-   // --- SKILL 3 (Debuff Attack | Cost: 30) ---
-   void skill3(Pokemon target) {
-       Random random = new Random();
-       int damage = 25;
-       int staminaCost = 30;
-       String attackType = this.type;
-      
-       damage = applyStatusEffects(target, damage);
-      
-       if (this.stamina < staminaCost) {
-           System.out.println(this.name + " does not have enough stamina to use Skill 3 (Need " + staminaCost + ").");
-           System.out.println(this.name + "'s current stamina is at " + this.stamina + " points.");
-           return;
-       }
-      
-       this.stamina -= staminaCost;
-       System.out.println(this.name + " lost " + staminaCost + " stamina points.");
-      
-       String skillName = "";
-       String statusEffect = "";
-
-
-       switch (this.name) {
-           case "Charmander":
-               skillName = "Fire Fang"; statusEffect = "burned"; break;
-           case "Squirtle":
-               skillName = "Bubble Beam"; statusEffect = "chilled"; break;
-           case "Bulbasaur":
-               skillName = "Seed Bomb"; statusEffect = "poisoned"; break;
-           case "Ninetales":
-               skillName = "Ember"; statusEffect = "burned"; break;
-           case "Arcanine":
-               skillName = "Bite"; statusEffect = "flinch"; break;
-           case "Blastoise":
-               skillName = "Rain Dance"; statusEffect = "wet"; break;
-           case "Lapras":
-               skillName = "Whirlpool"; statusEffect = "trap"; break;
-           case "Starmie":
-               skillName = "Recover"; statusEffect = "selfheal"; break;
-           case "Venusaur":
-               skillName = "Sleep Powder"; statusEffect = "sleep"; break;
-           default: skillName = "Debuff Attack";
-       }
-       System.out.println(this.name + " used " + skillName + " on " + target.name);
-
-
-
-
-       // Critical hit check (20% chance to add 25 damage)
-       if (random.nextInt(100) < 20) {
-           damage += 25;
-           System.out.println("It was a Critical Hit!");
-       }
-
-
-       target.takeDamage(damage, attackType);
-
-
-       // Status effect chance (20% chance) - Simplified to just apply the original 3 status types
-       if (random.nextInt(100) < 20) {
-            if (this.type.equals("Fire")) {
-               target.status = "burned";
-               System.out.println(target.name + " is burned!");
-            } else if (this.type.equals("Water")) {
-               target.status = "chilled";
-               System.out.println(target.name + " got chilled!");
-            } else if (this.type.equals("Grass")) {
-               target.status = "poisoned";
-               System.out.println(target.name + " is poisoned!");
-            }
-           target.duration = 1;
-       }
-      
-       if (target.health <= 0) System.out.println(target.name + " fainted!");
-   }
-
-
-
-
-   // --- SKILL 4 (Special Attack | Cost: 70) ---
-   void skill4(Pokemon target) {
-       int damage = 70;
-       int staminaCost = 70;
-       String attackType = this.type;
-       Random random = new Random();
-      
-       damage = applyStatusEffects(target, damage);
-      
-       // 50% Miss Chance
-       if (random.nextInt(100) < 50) {
-           System.out.println(this.name + "'s special attack missed!");
-           this.stamina -= (staminaCost / 2);
-           if (this.stamina < 0) this.stamina = 0;
-           System.out.println(this.name + " lost " + (staminaCost / 2) + " stamina points.");
-           return;
-       }
-
-
-       if (target.health <= 0) {
-           System.out.println(target.name + " has already fainted. Skill 4 failed.");
-           return;
-       }
-      
-       if (this.stamina < staminaCost) {
-           System.out.println(this.name + " does not have enough stamina to use Skill 4 (Need " + staminaCost + ").");
-           System.out.println(this.name + "'s current stamina is at " + this.stamina + " points.");
-           return;
-       }
-      
-       this.stamina -= staminaCost;
-       System.out.println(this.name + " lost " + staminaCost + " stamina points.");
-      
-       switch (this.name) {
-           case "Charmander": System.out.println(this.name + " used Fire Blast on " + target.name); break;
-           case "Squirtle": System.out.println(this.name + " used Aqua Jet on " + target.name); break;
-           case "Bulbasaur": System.out.println(this.name + " used Solar Beam on " + target.name); break;
-           case "Ninetales": System.out.println(this.name + " used Overheat on " + target.name); break;
-           case "Arcanine": System.out.println(this.name + " used Flare Blitz on " + target.name); break;
-           case "Blastoise": System.out.println(this.name + " used Hydro Cannon on " + target.name); break;
-           case "Lapras": System.out.println(this.name + " used Surf on " + target.name); break;
-           case "Starmie": System.out.println(this.name + " used Blizzard on " + target.name); break;
-           case "Venusaur": System.out.println(this.name + " used Frenzy Plant on " + target.name); break;
-           default: System.out.println(this.name + " used a special attack on " + target.name);
-       }
-
-
-
-
-       // Critical hit check (20% chance to add 70 damage)
-       if (random.nextInt(100) < 20) {
-           damage += 70;
-           System.out.println("It was a Critical Hit!");
-       }
-      
-       target.takeDamage(damage, attackType);
-
-
-       if (target.health <= 0) System.out.println(target.name + " fainted!");
-   }
-
-
-
-
-   void useManaPotion() {
-       if (this.staminaPotionUses >= MAX_STAMINA_USES) {
-            System.out.println(this.name + " is out of Stamina Potions (" + MAX_STAMINA_USES + "/" + MAX_STAMINA_USES + ")!");
-            return;
-       }
-       if (this.stamina == this.maxStamina) {
-            System.out.println(this.name + " is already at full stamina!");
-            return;
-       }
-      
-       this.stamina += 50;
-       this.staminaPotionUses++;
-      
-       // Status effect logic (original code)
-       if (this.duration >= 3) {
-           this.status = "normal";
-           this.duration = 0;
-           System.out.println(this.name + " is no longer chilled.");
-       }
-       if (this.status.equals("chilled")) {
-           System.out.println(this.name + " is chilled! Damage is reduced this turn.");
-           this.duration += 1;
-       }
-       if (this.status.equals("poisoned")) {
-           System.out.println(this.name + " is poisoned! receive 10 damage.");
-           this.duration += 1;
-           this.health -= 10;
-       }
-       if (this.status.equals("burned")) {
-           System.out.println(this.name + " is burned! receive 10 damage.");
-           this.duration += 1;
-           this.health -= 10;
-       }
-      
-       if (this.stamina > this.maxStamina) this.stamina = this.maxStamina;
-       System.out.println(this.name + " used a stamina potion and gained 50 stamina points.");
-   }
-
-
-
-
-   void useHealthPotion() {
-       if (this.healthPotionUses >= MAX_HP_USES) {
-            System.out.println(this.name + " is out of Health Potions (" + MAX_HP_USES + "/" + MAX_HP_USES + ")!");
-            return;
-       }
-       if (this.health == this.maxHealth) {
-            System.out.println(this.name + " is already at full health!");
-            return;
-       }
-
-
-       this.health += 50;
-       this.healthPotionUses++;
-      
-       // Status effect logic (original code)
-       if (this.duration >= 3) {
-           this.status = "normal";
-           this.duration = 0;
-           System.out.println(this.name + " is now in normal state.");
-       }
-       if (this.status.equals("chilled")) {
-           System.out.println(this.name + " is chilled! Damage is reduced this turn.");
-           this.duration += 1;
-       }
-       if (this.status.equals("poisoned")) {
-           System.out.println(this.name + " is poisoned! receive 10 damage.");
-           this.duration += 1;
-           this.health -= 10;
-       }
-       if (this.status.equals("burned")) {
-           System.out.println(this.name + " is burned! receive 10 damage.");
-           this.duration += 1;
-           this.health -= 10;
-       }
-      
-       if (this.health > this.maxHealth) this.health = this.maxHealth;
-       System.out.println(this.name + " used a health potion and gained 50 health points.");
-   }
-
-
-   // Protect Move
-   public boolean protect() {
-       if (this.turnsSinceProtected <= 1) {
-           System.out.println(this.name + " failed to use Protect! Cannot use consecutively.");
-           return false;
-       }
-      
-       this.isProtected = true;
-       this.turnsSinceProtected = 0;
-       System.out.println(this.name + " used **Protect**! It will block the opponent's next attack.");
-       return true;
-   }
-}
-
-
-
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Arrays;
 
 public class App {
 
+ // --- GAME-WIDE CONSTANTS AND COUNTERS ---
+ private static int p1HealthPotionsRemaining = 3; // Max 3
+ private static int p1ManaPotionsRemaining = 5;   // Max 5
+ private static int p2HealthPotionsRemaining = 3;
+ private static int p2ManaPotionsRemaining = 5;
+ 
+ // Helper Class/Data Structures (Kept minimal, using simple fields)
+ private static class SkillData {
+  final String skillName;
+  final int baseDamage;
+  final int staminaCost;
+  final String targetStatus;
+  final int accuracy;
 
-   // NEW: List of all 9 Pokemon for choice and AI selection
-   private static final String[][] ALL_POKEMON_DATA = {
-       {"Charmander", "Fire"},
-       {"Squirtle", "Water"},
-       {"Bulbasaur", "Grass"},
-       {"Ninetales", "Fire"},
-       {"Arcanine", "Fire"},
-       {"Blastoise", "Water"},
-       {"Lapras", "Water"},
-       {"Starmie", "Water"},
-       {"Venusaur", "Grass"}
-   };
+  SkillData(String name, int dmg, int cost, String status, int acc) {
+   this.skillName = name;
+   this.baseDamage = dmg;
+   this.staminaCost = cost;
+   this.targetStatus = status;
+   this.accuracy = acc;
+  }
+ }
+ 
+ private static class InitialStats {
+     final int maxHealth;
+     final int maxStamina;
+     
+     InitialStats(int maxHp, int maxStam) {
+         this.maxHealth = maxHp;
+         this.maxStamina = maxStam;
+     }
+ }
 
 
+ /**
+  * Pokemon class containing all game logic for attacks, status effects, and stats.
+  */
+ static class Pokemon {
+  String name;
+  String originalName;
+  int health;
+  int stamina;
+  final int maxHealth;
+  final int maxStamina;
+  String type;
+  String status;
+  int duration;
+  int skill4UsedCount;
+  boolean isMegaEvolved;
+  double damageMultiplier = 1.0;
+  boolean isFainted = false;
+  boolean lastActionWasProtect = false; 
 
+  private final Random random = new Random();
 
-   private static void simulateDelay() throws InterruptedException {
-       System.out.print("Simulating...");
-       for (int i = 0; i < 2; i++) {
-           Thread.sleep(1000);
-           System.out.print(".");
-       }
-       System.out.println("Done!");
+  // --- DATA ARRAYS ---
+  private static final String[] POKEMON_NAMES = {"Charizard", "Blastoise", "Venusaur", "Pikachu", "Tyranitar", "Salamence", "Snorlax", "Sylveon", "Garchomp"};
+  private static final String[] POKEMON_TYPES = {"Fire", "Water", "Grass", "Electric", "Dark", "Dragon", "Normal", "Fairy", "Ground"};
+  private static final String[] MEGA_EVO_NAMES = {"Mega Charizard", "Mega Blastoise", "Mega Venusaur", "Mega Raichu", "Mega Tyranitar", "Mega Salamence", "Snorlax", "Mega Sylveon", "Mega Garchomp"};
+
+  /**
+   * Defines the specific HP and Stamina values for each Pokemon.
+   */
+  private static InitialStats getInitialStats(String name) {
+      if (name.equals("Charizard") || name.equals("Blastoise") || name.equals("Venusaur")) {
+          return new InitialStats(300, 150);
+      } else if (name.equals("Pikachu")) {
+          return new InitialStats(250, 200);
+      } else if (name.equals("Tyranitar") || name.equals("Salamence")) {
+          return new InitialStats(350, 120);
+      } 
+      // NEW POKEMON STATS
+      else if (name.equals("Snorlax")) {
+          return new InitialStats(400, 100);
+      } else if (name.equals("Sylveon")) {
+          return new InitialStats(280, 170);
+      } else if (name.equals("Garchomp")) {
+          return new InitialStats(300, 150);
+      }
+      return new InitialStats(120, 120); // Default fallback
+  }
+
+  Pokemon(String name, String type, String status) {
+   this.originalName = name;
+   this.name = name;
+   
+   InitialStats stats = getInitialStats(name);
+   this.maxHealth = stats.maxHealth;
+   this.maxStamina = stats.maxStamina;
+   
+   this.health = this.maxHealth;
+   this.stamina = this.maxStamina;
+   this.type = type;
+   this.status = status;
+   this.duration = 0;
+   this.skill4UsedCount = 0;
+   this.isMegaEvolved = false;
+   System.out.println(this.name + " is captured!");
+  }
+
+  /**
+   * Defines skill data for all Pokémon. (Private helper method)
+   */
+  private SkillData getSkillData(int skillNum) {
+   String baseName = this.originalName;
+   
+   if (baseName.equals("Charizard")) {
+    if (skillNum == 1) return new SkillData("Flame Thrower", 30, 40, null, 100);
+    if (skillNum == 2) return new SkillData("Fire Spin", 30, 50, null, 100);
+    if (skillNum == 3) return new SkillData("Fire Fang", 50, 60, "burned", 100);
+    if (skillNum == 4) return new SkillData("Fire Blast", 70, 70, null, 50);
+   } else if (baseName.equals("Blastoise")) {
+    if (skillNum == 1) return new SkillData("Water Gun", 25, 40, null, 100);
+    if (skillNum == 2) return new SkillData("Water Pulse", 30, 50, null, 100);
+    if (skillNum == 3) return new SkillData("Bubble Beam", 50, 60, "chilled", 100);
+    if (skillNum == 4) return new SkillData("Aqua Jet", 70, 70, null, 50);
+   } else if (baseName.equals("Venusaur")) {
+    if (skillNum == 1) return new SkillData("Vine Whip", 25, 40, null, 100);
+    if (skillNum == 2) return new SkillData("Razor Leaf", 30, 50, null, 100);
+    if (skillNum == 3) return new SkillData("Seed Bomb", 50, 60, "poisoned", 100);
+    if (skillNum == 4) return new SkillData("Solar Beam", 70, 70, null, 50);
+   } else if (baseName.equals("Pikachu")) {
+    if (skillNum == 1) return new SkillData("Thunder Shock", 30, 40, null, 100);
+    if (skillNum == 2) return new SkillData("Electro Ball", 30, 50, null, 100);
+    if (skillNum == 3) return new SkillData("Thunder Wave", 50, 60, "paralyzed", 100);
+    if (skillNum == 4) return new SkillData("Volt Tackle", 70, 70, null, 50);
+   } else if (baseName.equals("Tyranitar")) {
+    if (skillNum == 1) return new SkillData("Bite", 30, 40, null, 100);
+    if (skillNum == 2) return new SkillData("Crunch", 30, 50, null, 100);
+    if (skillNum == 3) return new SkillData("Dark Pulse", 50, 60, "blind", 100);
+    if (skillNum == 4) return new SkillData("Hyper Beam", 70, 70, null, 50);
+   } else if (baseName.equals("Salamence")) {
+    if (skillNum == 1) return new SkillData("Dragon Breath", 30, 40, null, 100);
+    if (skillNum == 2) return new SkillData("Dragon Claw", 30, 50, null, 100);
+    if (skillNum == 3) return new SkillData("Outrage", 50, 60, "burned", 100);
+    if (skillNum == 4) return new SkillData("Draco Meteor", 70, 70, null, 50);
    }
+   else if (baseName.equals("Snorlax")) {
+    if (skillNum == 1) return new SkillData("Body Slam", 35, 40, null, 100);
+    if (skillNum == 2) return new SkillData("Rest", 0, 50, "sleep", 100); // Healing/Status Skill
+    if (skillNum == 3) return new SkillData("Heavy Slam", 50, 60, null, 100);
+    if (skillNum == 4) return new SkillData("Giga Impact", 80, 70, null, 50);
+   } else if (baseName.equals("Sylveon")) {
+    if (skillNum == 1) return new SkillData("Fairy Wind", 30, 40, null, 100);
+    if (skillNum == 2) return new SkillData("Draining Kiss", 30, 50, null, 100);
+    if (skillNum == 3) return new SkillData("Moonblast", 50, 60, null, 100);
+    if (skillNum == 4) return new SkillData("Pixie Dust", 70, 70, null, 50);
+   } else if (baseName.equals("Garchomp")) {
+    if (skillNum == 1) return new SkillData("Bulldoze", 30, 40, null, 100);
+    if (skillNum == 2) return new SkillData("Dragon Rush", 30, 50, null, 100);
+    if (skillNum == 3) return new SkillData("Earthquake", 60, 60, null, 100);
+    if (skillNum == 4) return new SkillData("Draco Meteor", 70, 70, null, 50);
+   }
+   return null; // Should not happen
+  }
   
-   // NEW: Helper to create opponent (different from player's choice)
-   private static Pokemon createOpponent(String playerPokemonName) {
-       Random random = new Random();
-       String opponentName;
-       String opponentType;
-      
-       do {
-           int randomIndex = random.nextInt(ALL_POKEMON_DATA.length);
-           opponentName = ALL_POKEMON_DATA[randomIndex][0];
-           opponentType = ALL_POKEMON_DATA[randomIndex][1];
-       } while (opponentName.equals(playerPokemonName));
+  /** * Public method to get a skill's name for display in the menu.
+   * This is the required method for the App class to call.
+   */
+  public String getSkillName(int skillNum) {
+      SkillData data = getSkillData(skillNum);
+      return data != null ? data.skillName : "Unknown Skill";
+  }
 
+  /**
+   * Replaces TYPE_MODIFIER lookup using if-else blocks.
+   */
+  private int getTypeModifier(String targetType) {
+   String typeCombo = this.type + targetType;
+   int modifier = 0;
+   
+   // --- SUPER EFFECTIVE ATTACKS (+15 Damage) ---
+   
+   // Existing
+   if (typeCombo.equals("FireGrass") || typeCombo.equals("WaterFire") || typeCombo.equals("GrassWater") ||
+    typeCombo.equals("ElectricWater") || typeCombo.equals("DarkGrass") || typeCombo.equals("DragonDragon")) {
+    modifier = 15; 
+   }
+   
+   // NEW: Sylveon (Fairy) super effective against Dark
+   else if (typeCombo.equals("FairyDark")) {
+       modifier = 15;
+   }
+   // NEW: Garchomp (Ground) super effective against Electric, Fire
+   else if (typeCombo.equals("GroundElectric") || typeCombo.equals("GroundFire")) {
+       modifier = 15;
+   }
+   
+   // --- NOT VERY EFFECTIVE / RESISTED ATTACKS (-15 Damage) ---
+   
+   // Existing
+   else if (typeCombo.equals("FireWater") || typeCombo.equals("WaterGrass") ||
+    typeCombo.equals("ElectricGrass") || typeCombo.equals("DarkFire") || typeCombo.equals("DarkWater") ||
+    typeCombo.equals("DragonFire") || typeCombo.equals("DragonWater")) {
+    modifier = -15; 
+   }
+   
+   // NEW: Sylveon (Fairy) resists Dark
+   else if (this.type.equals("Dark") && targetType.equals("Fairy")) {
+       modifier = -15;
+   } 
+   // NEW: Sylveon (Fairy) weak against Fire
+   else if (this.type.equals("Fire") && targetType.equals("Fairy")) {
+       modifier = 15; // Fire is Super Effective against Fairy
+   }
+   // NEW: Garchomp (Ground) resists Electric
+   else if (this.type.equals("Electric") && targetType.equals("Ground")) {
+       modifier = -15; 
+   }
+   // NEW: Garchomp (Ground) weak against Water, Grass, Fairy
+   else if ((this.type.equals("Water") || this.type.equals("Grass") || this.type.equals("Fairy")) && targetType.equals("Ground")) {
+       modifier = 15; // Water/Grass/Fairy are Super Effective against Ground
+   }
+   // NEW: Snorlax (Normal) has no modifiers against any existing type, so no entry needed for Normal attack/defense.
 
-       return new Pokemon(opponentName, 120, 120, opponentType, "normal");
+   return modifier;
+  }
+
+  /** Handles damage-over-time and decay checks for target's status before attack. */
+  private int applyPreAttackStatusEffects(Pokemon target) {
+   int damageAdjustment = 0;
+
+   // Handle self-status decay (e.g., Chill duration)
+   if (this.duration >= 3 && this.status.equals("chilled")) {
+    this.status = "normal"; this.duration = 0;
+    System.out.println(this.name + " is now in normal state (Chill wore off).");
+   }
+   if (this.status.equals("chilled")) {
+    System.out.println(this.name + " is chilled! Damage is reduced this turn.");
+    this.duration += 1;
+    damageAdjustment -= 10;
    }
 
-
-
-
-   public static void main(String[] args) throws Exception, InterruptedException {
-       Scanner scanner = new Scanner(System.in);
-       Random random = new Random();
-
-
-
-
-       System.out.println(" ╔══════════▣◎▣════════════╗ ");
-       System.out.println(" Welcome to Pokemon Battle ");
-       System.out.println(" ╚══════════▣◎▣════════════╝ ");
-
-
-
-
-       // Choose your pokemon
-       System.out.println("Choose your Pokemon:");
-       for (int i = 0; i < ALL_POKEMON_DATA.length; i++) {
-           System.out.printf("%d: %s (%s Type)\n", i + 1, ALL_POKEMON_DATA[i][0], ALL_POKEMON_DATA[i][1]);
-       }
-      
-       int pokemonChoiceIndex = -1;
-       while (true) {
-           System.out.print("Enter choice (1-" + ALL_POKEMON_DATA.length + "): ");
-           if (scanner.hasNextInt()) {
-               int choice = scanner.nextInt();
-               if (choice >= 1 && choice <= ALL_POKEMON_DATA.length) {
-                   pokemonChoiceIndex = choice - 1;
-                   break;
-               }
-           }
-           System.out.println("Invalid choice. Please choose a number between 1 and " + ALL_POKEMON_DATA.length + ".");
-           scanner.nextLine();
-       }
-       scanner.nextLine();
-
-
-       String playerPokemonName = ALL_POKEMON_DATA[pokemonChoiceIndex][0];
-       String playerPokemonType = ALL_POKEMON_DATA[pokemonChoiceIndex][1];
-
-
-
-
-       // Create Pokemon instances
-       Pokemon p1 = new Pokemon(playerPokemonName, 120, 120, playerPokemonType, "normal");
-      
-       // AI Pokemon counter part (randomly selected, not chosen by the player)
-       Pokemon p2 = createOpponent(p1.name);
-
-
-
-
-       System.out.println("--- Pokemon Battle Commences: " + p1.name + " vs. " + p2.name + "! ---");
-       p1.showStats();
-       p2.showStats();
-       System.out.println("---------------------------------------");
-
-
-
-
-       while (p1.health > 0 && p2.health > 0) {
-
-
-
-
-           // --- P1's Turn (User Input) ---
-           System.out.println("\n" + p1.name + "'s Turn!");
-           System.out.println("Choose your action:");
-           System.out.println("1: Tackle (+20 Stam)");
-           System.out.println("2: Skill 1 (Light Attack | [ Stamina cost : 40 ])");
-           System.out.println("3: Skill 2 (Medium Attack | [ Stamina cost : 50 ])");
-           System.out.println("4: Skill 3 (Debuff Attack (Status Effect / Low Damage) | [ Stamina cost : 30 ])");
-           System.out.println("5: Skill 4 (Special Attack (Low Accuracy / High Damage / High Stamina Cost) | [ Stamina cost : 70 ])");
-           System.out.println("6: Use Health Potion (Max " + p1.getMaxHpUses() + " uses)");
-           System.out.println("7: Use Mana Potion (Max " + p1.getMaxStaminaUses() + " uses)");
-           System.out.println("8: Protect (Blocks 1 attack, cannot use consecutively)");
-           System.out.println("---------------------------------------");
-           System.out.print("Enter choice (1-8): ");
-           String choice = scanner.nextLine();
-           boolean isAttack = false;
-           boolean moveSuccessful = true;
-
-
-
-
-           // Prepare for the turn (Handles Protect cooldown)
-           p1.turnsSinceProtected++;
-           p2.turnsSinceProtected++;
-          
-           switch (choice) {
-               case "1":
-                   p1.tackle(p2);
-                   isAttack = true;
-                   break;
-               case "2":
-                   p1.skill1(p2);
-                   isAttack = true;
-                   break;
-               case "3":
-                   p1.skill2(p2);
-                   isAttack = true;
-                   break;
-               case "4":
-                   p1.skill3(p2);
-                   isAttack = true;
-                   break;
-               case "5":
-                   p1.skill4(p2);
-                   isAttack = true;
-                   break;
-               case "6":
-                   p1.useHealthPotion();
-                   break;
-               case "7":
-                   p1.useManaPotion();
-                   break;
-               case "8":
-                   moveSuccessful = p1.protect();
-                   isAttack = true;
-                   break;
-               default:
-                   System.out.println("Invalid choice. " + p1.name + " loses its turn.");
-                   moveSuccessful = false;
-           }
-          
-           if (moveSuccessful) {
-               simulateDelay();
-           }
-          
-           System.out.println("---------------------------------------");
-           if (p2.health <= 0) {
-               System.out.println("" + p2.name + " has fainted!");
-               break;
-           }
-
-
-
-
-           // --- P2's Turn (AI/Automatic Attack) ---
-           System.out.println("\n" + p2.name + "'s Turn!");
-          
-           // AI Action Logic
-           if (p2.health < 30 && p2.healthPotionUses < p2.getMaxHpUses()) {
-               p2.useHealthPotion();
-           } else if (p2.stamina < 40 && p2.staminaPotionUses < p2.getMaxStaminaUses()) {
-               p2.useManaPotion();
-           } else if (p2.getTurnsSinceProtected() > 1 && p2.health < 30 && p2.stamina > 50 && random.nextInt(100) < 50) {
-               p2.protect();
-           } else if (p2.stamina < 30) {
-               p2.tackle(p1);
-           } else {
-               int attackChoice = random.nextInt(4);
-               if (attackChoice == 0) {
-                   p2.skill1(p1);
-               } else if (attackChoice == 1) {
-                   p2.skill2(p1);
-               } else if (attackChoice == 2) {
-                   p2.skill3(p1);
-               } else if (attackChoice == 3) {
-                   p2.skill4(p1);
-               }
-           }
-
-
-
-
-           simulateDelay();
-
-
-           if (p1.health <= 0) {
-               System.out.println("" + p1.name + " has fainted!");
-               break;
-           }
-
-
-
-
-           System.out.println("\n--- Current Stats ---");
-           p1.showStats();
-           p2.showStats();
-           System.out.println("---------------------");
-
-
-           simulateDelay();
-       }
-
-
-
-
-       scanner.close();
-
-
-
-
-       // Announce the winner
-       System.out.println("\n--- Battle Results ---");
-       if (p1.health > 0) {
-           System.out.println("**" + p1.name + " is the winner!**");
-       } else if (p2.health > 0) {
-           System.out.println("**" + p2.name + " is the winner!**");
-       } else {
-           System.out.println("It's a draw! Both Pokemon fainted.");
-       }
+   // Apply DoT to target
+   int statusDamage = 0;
+   if (target.status.equals("poisoned") || target.status.equals("burned")) {
+    statusDamage = 10;
+    System.out.printf("The %s weakens %s! Extra damage dealt.%n", target.status, target.name);
+    target.duration += 1;
+    if (target.duration > 3) {
+     System.out.printf("%s is no longer %s.%n", target.name, target.status);
+     target.status = "normal"; target.duration = 0;
+    }
    }
+
+   if (!target.status.equals("protected")) {
+    target.health -= statusDamage;
+   }
+
+   return damageAdjustment;
+  }
+
+  private void applyPostAttackLogic(Pokemon target, int staminaCost) {
+   this.stamina -= staminaCost;
+   if (target.health < 0) target.health = 0;
+   System.out.printf("%s's current health is at [%d] points.%n", target.name, target.health);
+   System.out.printf("%s lost %d stamina points.%n", this.name, staminaCost);
+   if (target.health <= 0) {
+    target.isFainted = true;
+    System.out.println(target.name + " fainted!");
+   }
+  }
+
+  // --- TACKLE IMPLEMENTATION ---
+  void tackle(Pokemon target) {
+      this.lastActionWasProtect = false; // Reset Protect flag on non-Protect action
+      
+      if (this.status.equals("paralyzed")) {
+        System.out.printf("%s is paralyzed and cannot move!%n", this.name);
+        return;
+      }
+      if (target.isFainted) {
+        System.out.println(target.name + " has already fainted. Tackle skill failed.");
+        return;
+      }
+      
+      int preAttackDamageAdjustment = applyPreAttackStatusEffects(target);
+      
+      // STAMINA GAIN LOGIC
+      int staminaGained = 20;
+      int oldStamina = this.stamina;
+      this.stamina += staminaGained;
+      if (this.stamina > this.maxStamina) {
+          this.stamina = this.maxStamina;
+      }
+      int actualGain = this.stamina - oldStamina;
+      
+      if (actualGain > 0) {
+          System.out.println(this.name + " recovered " + actualGain + " stamina points.");
+      } else {
+          System.out.println(this.name + " has full stamina (" + this.maxStamina + "/" + this.maxStamina + "), no stamina gained.");
+      }
+      
+      // DAMAGE LOGIC
+      int baseDamage = (this.originalName.equals("Pikachu")) ? 30 : 40; // Pikachu is 30, others are 40
+      
+      if (this.status.equals("protected")) {
+          System.out.printf("%s is protected and cannot launch an attack this turn!%n", this.name);
+          return;
+      }
+      
+      if (target.status.equals("protected")) {
+          System.out.printf("%s is protected! No damage taken this turn.%n", target.name);
+          return;
+      }
+      
+      System.out.printf("%s used Tackle on %s.%n", this.name, target.name);
+      
+      int finalDamage = baseDamage + preAttackDamageAdjustment;
+      finalDamage = (int) (finalDamage * this.damageMultiplier);
+      
+      if (this.isMegaEvolved) {
+        System.out.printf("Mega Evolve bonus applied! Total Damage: %d%n", finalDamage);
+      }
+      
+      target.health -= finalDamage;
+      
+      // Check for fainted (No stamina cost to deduct)
+      if (target.health < 0) target.health = 0;
+      System.out.printf("%s's current health is at [%d] points.%n", target.name, target.health);
+      
+      if (target.health <= 0) {
+        target.isFainted = true;
+        System.out.println(target.name + " fainted!");
+      }
+  }
+  // --- END TACKLE IMPLEMENTATION ---
+
+  private void executeSkillAttack(Pokemon target, int skillNum) {
+   SkillData data = getSkillData(skillNum);
+   
+   this.lastActionWasProtect = false; // <<< Reset Protect flag on non-Protect action
+
+   if (this.status.equals("paralyzed")) {
+    System.out.printf("%s is paralyzed and cannot move!%n", this.name);
+    return;
+   }
+   if (this.status.equals("protected")) {
+    System.out.printf("%s is protected and cannot launch an attack this turn!%n", this.name);
+    return;
+   }
+   if (target.isFainted) {
+    System.out.printf("%s has already fainted. Skill %d failed.%n", target.name, skillNum);
+    return;
+   }
+
+   int preAttackDamageAdjustment = applyPreAttackStatusEffects(target);
+
+   if (this.stamina < data.staminaCost) {
+    System.out.printf("%s doesn't have enough stamina (%d/%d) to use %s.%n",
+     this.name, this.stamina, data.staminaCost, data.skillName);
+    return;
+   }
+   
+   // Handle Snorlax Rest healing (Skill 2)
+   if (this.originalName.equals("Snorlax") && skillNum == 2) {
+       this.health += 100; // Rest heals 100 HP
+       this.health = Math.min(this.health, this.maxHealth);
+       this.stamina -= data.staminaCost;
+       this.status = "sleep"; // Apply sleep status
+       this.duration = 1; 
+       System.out.printf("%s used Rest! Health restored. Current HP: %d/%d. %s is now sleeping (3 turns).%n", 
+           this.name, this.health, this.maxHealth, this.name);
+       return;
+   }
+
+   if (skillNum == 4 && !this.isMegaEvolved) {
+    this.skill4UsedCount++;
+    System.out.printf("(Skill 4 used: %d/3)%n", this.skill4UsedCount);
+   }
+
+   int effectiveAccuracy = data.accuracy;
+   if (this.status.equals("blind") || this.status.equals("sleep")) { // Sleeping Pokémon are blinded/immobilized
+    if (this.status.equals("sleep")) {
+        System.out.printf("%s is asleep and cannot move!%n", this.name);
+        return;
+    }
+    effectiveAccuracy = 35;
+    System.out.printf("%s is blind! Attack accuracy fixed at 35%%.%n", this.name);
+   }
+
+   if (effectiveAccuracy < 100 && random.nextInt(100) >= effectiveAccuracy) {
+    System.out.printf("%s's attack missed!%n", this.name);
+    this.stamina -= (data.staminaCost / 2);
+    System.out.printf("%s lost %d stamina points (half cost).%n", this.name, data.staminaCost / 2);
+    return;
+   }
+
+   if (target.status.equals("protected")) {
+    System.out.printf("%s is protected! No damage taken this turn.%n", target.name);
+    this.stamina -= data.staminaCost;
+    System.out.printf("%s lost %d stamina points.%n", this.name, data.staminaCost);
+    return;
+   }
+
+   System.out.printf("%s used %s on %s.%n", this.name, data.skillName, target.name);
+   int damage = data.baseDamage + preAttackDamageAdjustment;
+
+   int typeMod = getTypeModifier(target.type);
+   damage += typeMod;
+
+   if (typeMod > 0) System.out.println("It's super effective!");
+   else if (typeMod < 0) System.out.println("It's not very effective...");
+
+   if ((skillNum == 3 || skillNum == 4) && random.nextInt(100) < 20) {
+    int critBonus = (skillNum == 3) ? 25 : 70;
+    damage += critBonus;
+    System.out.println("A critical hit!");
+   }
+
+   damage = (int) (damage * this.damageMultiplier);
+   if (this.isMegaEvolved) {
+    System.out.printf("Mega Evolve bonus applied! Total Damage: %d%n", damage);
+   }
+
+   target.health -= damage;
+
+   if (skillNum == 3 && data.targetStatus != null && random.nextInt(100) < 20) {
+    target.status = data.targetStatus;
+    target.duration = 1;
+    System.out.printf("%s is %s! It will have a status effect for 3 turns.%n", target.name, target.status);
+   }
+
+   applyPostAttackLogic(target, data.staminaCost);
+  }
+
+  // Generic potion usage, called by App after checking limits
+  void usePotion(String potionType, int amount) {
+   this.lastActionWasProtect = false; // <<< Reset Protect flag
+   
+   int statusDamage = 0;
+
+   // Status effect damage application
+   if (this.status.equals("poisoned") || this.status.equals("burned")) {
+    statusDamage = 10;
+    System.out.printf("%s is %s! Received %d damage while using a potion.%n", this.name, this.status, statusDamage);
+    this.duration += 1;
+    if (this.duration > 3) {
+     this.status = "normal"; this.duration = 0;
+     System.out.printf("%s is no longer %s (Status wore off).%n", this.name, this.status);
+    }
+   }
+
+   if (!this.status.equals("protected")) {
+    this.health -= statusDamage;
+   }
+   
+   // Apply heal
+   if ("mana".equals(potionType)) {
+    this.stamina += amount;
+    this.stamina = Math.min(this.stamina, this.maxStamina); 
+    System.out.printf("%s used a mana potion and gained %d stamina points. Current: %d%n", this.name, amount, this.stamina);
+   } else if ("health".equals(potionType)) {
+    this.health += amount;
+    this.health = Math.min(this.health, this.maxHealth);
+    System.out.printf("%s used a health potion and gained %d health points. Current: %d%n", this.name, amount, this.health);
+   }
+  }
+
+  void megaEvolve() {
+   this.lastActionWasProtect = false; // <<< Reset Protect flag
+   final int MEGA_COST = 100;
+   final int REQUIRED_SKILL4 = 3;
+   final double DAMAGE_BOOST = 1.5;
+
+   if (this.status.equals("paralyzed") || this.status.equals("sleep")) {
+    System.out.printf("%s is %s and cannot move!%n", this.name, this.status);
+    return;
+   }
+
+   if (this.isMegaEvolved) {
+    System.out.printf("%s is already Mega Evolved!%n", this.name); return;
+   }
+   if (this.stamina < MEGA_COST || this.skill4UsedCount < REQUIRED_SKILL4) {
+    System.out.printf("%s failed to Mega Evolve. Requires 100 Stamina (Have: %d) and %d Skill 4 uses (Have: %d).%n",
+     this.name, this.stamina, REQUIRED_SKILL4, this.skill4UsedCount);
+    return;
+   }
+
+   this.stamina -= MEGA_COST;
+   this.damageMultiplier = DAMAGE_BOOST;
+   this.isMegaEvolved = true;
+
+   String megaName = this.originalName;
+   for(int i = 0; i < POKEMON_NAMES.length; i++) {
+    if(POKEMON_NAMES[i].equals(this.originalName)) {
+     megaName = MEGA_EVO_NAMES[i];
+     break;
+    }
+   }
+
+   System.out.printf("⚡ %s Mega Evolved into %s! Damage boosted by 50%%! ⚡%n", this.name, megaName);
+   this.name = megaName;
+   this.skill4UsedCount = 0;
+  }
+
+  // CAVEAT 1 IMPLEMENTATION: Updated Protect logic
+  boolean useProtect() { 
+   if (this.status.equals("paralyzed") || this.status.equals("sleep")) {
+    System.out.printf("%s is %s and cannot move!%n", this.name, this.status);
+    return false;
+   }
+   
+   // NEW LOGIC: Cannot use Protect twice in a row
+   if (this.lastActionWasProtect) {
+    System.out.printf("%s failed to use Protect! It can't be used two turns in a row.%n", this.name);
+    return false;
+   }
+   
+   this.status = "protected";
+   this.duration = 1; 
+   this.lastActionWasProtect = true; 
+   System.out.printf("🛡️ %s used Protect! It is now shielded from damage this turn only. 🛡️%n", this.name);
+   return true; 
+  }
+
+  void skill1(Pokemon target) { executeSkillAttack(target, 1); }
+  void skill2(Pokemon target) { executeSkillAttack(target, 2); }
+  void skill3(Pokemon target) { executeSkillAttack(target, 3); }
+  void skill4(Pokemon target) { executeSkillAttack(target, 4); }
+
+  void showStats(boolean isPlayer) {
+   System.out.println("Name: " + this.name + (this.isFainted ? " (Fainted)" : ""));
+   if (this.isFainted) return;
+
+   System.out.println(" Health: " + this.health + "/" + this.maxHealth); 
+   System.out.println(" Stamina: " + this.stamina + "/" + this.maxStamina); 
+   System.out.println(" Type: " + this.type);
+
+   int remainingTurns = 4 - this.duration;
+   String statusInfo;
+   if (this.status.equals("protected")) {
+       statusInfo = "protected (Shielded this turn)"; 
+   } else if (this.duration > 0 && !this.status.equals("normal")) {
+    statusInfo = String.format("%s (Remaining Turns: %d)", this.status, remainingTurns);
+   } else {
+    statusInfo = this.status;
+   }
+   System.out.println(" Status: " + statusInfo);
+   
+   if (!this.isFainted && this.lastActionWasProtect && !this.status.equals("protected")) {
+       System.out.println(" WARNING: Cannot use Protect next turn!");
+   }
+   
+   System.out.println(" Skill 4 Uses: " + this.skill4UsedCount + "/3");
+   System.out.println(" Damage Multiplier: x" + this.damageMultiplier);
+   
+   if(isPlayer) {
+       System.out.printf(" Potions Left - Health: %d/3 | Mana: %d/5%n", p1HealthPotionsRemaining, p1ManaPotionsRemaining);
+   } else {
+       System.out.printf(" Potions Left - Health: %d/3 | Mana: %d/5%n", p2HealthPotionsRemaining, p2ManaPotionsRemaining);
+   }
+  }
+ }
+
+ // --- Application Logic ---
+
+ private static final List<String> ALL_POKEMON_NAMES = Arrays.asList(Pokemon.POKEMON_NAMES);
+ private static final List<String> ALL_POKEMON_TYPES = Arrays.asList(Pokemon.POKEMON_TYPES);
+
+ private static void simulateDelay() throws InterruptedException {
+  System.out.print("Loading...");
+  Thread.sleep(1000);
+  System.out.println(".Done!");
+ }
+
+ /** Advances duration for non-DoT status effects (Protected, Paralyzed, Blind, Chilled, Sleep). */
+ private static void advanceStatusDuration(Pokemon p) {
+  // Always clear Protected status here, as it only lasts one turn.
+  if (p.status.equals("protected")) {
+   System.out.printf("--- %s's Protect wore off!%n", p.name);
+   p.status = "normal";
+   p.duration = 0;
+  }
+
+  if (!p.status.equals("normal") && !p.status.equals("poisoned") && !p.status.equals("burned")) {
+   p.duration++;
+   // Sleep duration ends after 3 turns
+   if (p.duration > 3) {
+    System.out.printf("--- %s's %s wore off!%n", p.name, p.status);
+    p.status = "normal";
+    p.duration = 0;
+   }
+  }
+ }
+
+ /** Replaces Map lookups and HashSet checks for player team selection. */
+ private static List<Pokemon> choosePlayerTeam(Scanner scanner) {
+  List<Pokemon> team = new ArrayList<>();
+  List<String> chosenNames = new ArrayList<>(); 
+
+  System.out.println("\n--- Choose your team of 3 Pokémon (Enter the number) ---");
+  for (int i = 0; i < ALL_POKEMON_NAMES.size(); i++) {
+   System.out.printf("%d: %s (%s) [HP: %d, Stamina: %d]%n", 
+    i + 1, 
+    ALL_POKEMON_NAMES.get(i), 
+    ALL_POKEMON_TYPES.get(i),
+    Pokemon.getInitialStats(ALL_POKEMON_NAMES.get(i)).maxHealth, 
+    Pokemon.getInitialStats(ALL_POKEMON_NAMES.get(i)).maxStamina
+   );
+  }
+
+  while (team.size() < 3) {
+   System.out.printf("Select Pokémon %d (1-%d): ", team.size() + 1, ALL_POKEMON_NAMES.size());
+   if (scanner.hasNextInt()) {
+    int choice = scanner.nextInt();
+    scanner.nextLine();
+    if (choice >= 1 && choice <= ALL_POKEMON_NAMES.size()) {
+     String name = ALL_POKEMON_NAMES.get(choice - 1);
+     String type = ALL_POKEMON_TYPES.get(choice - 1);
+
+     if (chosenNames.contains(name)) { 
+      System.out.println(name + " is already on your team. Choose another.");
+     } else {
+      team.add(new Pokemon(name, type, "normal")); 
+      chosenNames.add(name);
+     }
+    } else {
+     System.out.println("Invalid number. Please choose between 1 and " + ALL_POKEMON_NAMES.size());
+    }
+   } else {
+    scanner.next();
+    System.out.println("Invalid input. Please enter a number.");
+   }
+  }
+  return team;
+ }
+
+ /** Creates a team of 3 unique, random Pokémon not chosen by the player. */
+ private static List<Pokemon> createAITeam(List<String> playerNames, Random random) {
+  List<Pokemon> team = new ArrayList<>();
+  List<String> availableForAI = new ArrayList<>();
+  
+  for(String name : ALL_POKEMON_NAMES) {
+   if (!playerNames.contains(name)) {
+    availableForAI.add(name);
+   }
+  }
+
+  // Shuffle the remaining Pokémon and pick the first 3
+  for (int i = 0; i < availableForAI.size(); i++) {
+   String temp = availableForAI.get(i);
+   int swapIndex = random.nextInt(availableForAI.size());
+   availableForAI.set(i, availableForAI.get(swapIndex));
+   availableForAI.set(swapIndex, temp);
+  }
+
+  for (int i = 0; i < 3; i++) {
+   String name = availableForAI.get(i);
+   String type = "Unknown";
+   for(int j=0; j < Pokemon.POKEMON_NAMES.length; j++) {
+    if(Pokemon.POKEMON_NAMES[j].equals(name)) {
+     type = Pokemon.POKEMON_TYPES[j];
+     break;
+    }
+   }
+   team.add(new Pokemon(name, type, "normal"));
+  }
+  return team;
+ }
+
+ /** Finds the first available (not fainted) Pokémon in the team. */
+ private static Pokemon findNextAvailablePokemon(List<Pokemon> team) {
+  for (Pokemon p : team) {
+   if (!p.isFainted) {
+    return p;
+   }
+  }
+  return null; // All fainted
+ }
+
+ /** * Swaps the current active Pokemon with a selected, available team member.
+  * @return The newly swapped-in Pokemon, or the original Pokemon if the swap failed (paralyzed/invalid choice).
+  */
+ private static Pokemon handlePlayerSwap(Scanner scanner, Pokemon currentP1, List<Pokemon> p1Team) {
+  if (currentP1.status.equals("paralyzed") || currentP1.status.equals("sleep")) {
+   System.out.printf("%s is %s and cannot swap this turn!%n", currentP1.name, currentP1.status);
+   return currentP1;
+  }
+  
+  currentP1.lastActionWasProtect = false; // <<< Reset Protect flag on swap
+
+  System.out.println("\n--- Choose Pokemon to Swap In (Type the number) ---");
+  int count = 1;
+  for (Pokemon p : p1Team) {
+   String status = p.isFainted ? "(Fainted)" : (p == currentP1 ? "(Active)" : "");
+   System.out.printf("%d: %s (%s) %s [HP: %d/%d]%n", count, p.name, p.type, status, p.health, p.maxHealth);
+   count++;
+  }
+
+  int swapChoice;
+  while (true) {
+   System.out.print("Enter choice (1-3): ");
+   if (scanner.hasNextInt()) {
+    swapChoice = scanner.nextInt();
+    scanner.nextLine();
+    if (swapChoice >= 1 && swapChoice <= 3) {
+     Pokemon newP = p1Team.get(swapChoice - 1);
+     if (newP.isFainted) {
+      System.out.println("That Pokemon has fainted. Choose another.");
+     } else if (newP == currentP1) {
+      System.out.println(newP.name + " is already active!");
+     } else {
+      System.out.printf("P1 withdrew %s and sent out %s!%n", currentP1.name, newP.name);
+      return newP; // Return the new Pokémon
+     }
+    } else {
+     System.out.println("Invalid choice. Try again.");
+    }
+   } else {
+    scanner.next();
+    System.out.println("Invalid input. Try again.");
+   }
+  }
+ }
+
+ private static Pokemon handleAISwap(Pokemon currentP2, List<Pokemon> p2Team, String reason) throws InterruptedException {
+  Pokemon nextP2 = findNextAvailablePokemon(p2Team);
+  if (nextP2 == null || nextP2 == currentP2) {
+   return currentP2;
+  }
+  
+  currentP2.lastActionWasProtect = false; // <<< Reset Protect flag on swap
+
+  System.out.printf("P2 is considering a tactical swap (%s)...%n", reason);
+  simulateDelay();
+
+  for (Pokemon p : p2Team) {
+   if (!p.isFainted && p != currentP2) {
+    System.out.printf("P2 withdrew %s and sent out %s!%n", currentP2.name, p.name);
+    return p;
+   }
+  }
+  return currentP2;
+ }
+ 
+ /**
+  * Handles the secondary menu for attacks.
+  * Returns true if an attack was successfully executed, false otherwise.
+  */
+ private static boolean handleAttackMenu(Scanner scanner, Pokemon currentP1, Pokemon currentP2) {
+    System.out.println("\n--- Attack Menu ---");
+    System.out.println(" 1. Tackle");
+    // UPDATED: Display dynamic skill names
+    System.out.println(" 2. " + currentP1.getSkillName(1));
+    System.out.println(" 3. " + currentP1.getSkillName(2));
+    System.out.println(" 4. " + currentP1.getSkillName(3));
+    System.out.println(" 5. " + currentP1.getSkillName(4));
+    System.out.println(" 6. Back");
+    
+    int attackChoice;
+    while(true) {
+        System.out.print("Enter choice (0-5): ");
+        if (scanner.hasNextInt()) {
+            attackChoice = scanner.nextInt();
+            scanner.nextLine();
+            
+            switch (attackChoice) {
+                case 1: 
+                    currentP1.tackle(currentP2); 
+                    return true;
+                case 2: 
+                    currentP1.skill1(currentP2); 
+                    return true;
+                case 3: 
+                    // Handle special case for Snorlax Rest (Skill 2)
+                    if (currentP1.originalName.equals("Snorlax") && currentP1.stamina < 50) {
+                        System.out.println(currentP1.name + " doesn't have enough stamina (50) to use Rest!");
+                        return false; 
+                    }
+                    currentP1.skill2(currentP2); 
+                    return true;
+                case 4: 
+                    currentP1.skill3(currentP2); 
+                    return true;
+                case 5: 
+                    currentP1.skill4(currentP2); 
+                    return true;
+                case 6: 
+                    return false; // Go back to main menu
+                default: 
+                    System.out.println("Invalid attack choice. Try again.");
+            }
+        } else {
+            scanner.next();
+            System.out.println("Invalid input. Try again.");
+        }
+    }
+ }
+ 
+ /**
+  * Handles the secondary menu for potions.
+  * Returns true if a potion was successfully used, false otherwise.
+  */
+ private static boolean handleBagMenu(Scanner scanner, Pokemon currentP1) {
+    System.out.println("\n--- Bag Menu ---");
+    System.out.println(" 1. Mana Potion (Remaining: " + p1ManaPotionsRemaining + "/5)");
+    System.out.println(" 2. Health Potion (Remaining: " + p1HealthPotionsRemaining + "/3)");
+    System.out.println(" 9. Back");
+    
+    int bagChoice;
+    while(true) {
+        System.out.print("Enter choice (1-2 or 9): ");
+        if (scanner.hasNextInt()) {
+            bagChoice = scanner.nextInt();
+            scanner.nextLine();
+            
+            switch (bagChoice) {
+                case 1: // Mana Potion
+                    currentP1.lastActionWasProtect = false; // Reset Protect flag
+                    if (currentP1.status.equals("sleep") || currentP1.status.equals("paralyzed")) {
+                        System.out.printf("%s is %s and cannot use a potion this turn!%n", currentP1.name, currentP1.status);
+                        return false;
+                    }
+                    if (p1ManaPotionsRemaining <= 0) {
+                        System.out.println(currentP1.name + " is out of Mana Potions! Choose another action.");
+                        return false; 
+                    }
+                    currentP1.usePotion("mana", 50);
+                    p1ManaPotionsRemaining--;
+                    return true;
+                    
+                case 2: // Health Potion
+                    currentP1.lastActionWasProtect = false; // Reset Protect flag
+                    if (currentP1.status.equals("sleep") || currentP1.status.equals("paralyzed")) {
+                        System.out.printf("%s is %s and cannot use a potion this turn!%n", currentP1.name, currentP1.status);
+                        return false;
+                    }
+                    if (p1HealthPotionsRemaining <= 0) {
+                        System.out.println(currentP1.name + " is out of Health Potions! Choose another action.");
+                        return false;
+                    }
+                    currentP1.usePotion("health", 50);
+                    p1HealthPotionsRemaining--;
+                    return true;
+                    
+                case 9: return false; // Go back to main menu
+                default: System.out.println("Invalid bag choice. Try again.");
+            }
+        } else {
+            scanner.next();
+            System.out.println("Invalid input. Try again.");
+        }
+    }
+ }
+
+ /**
+  * Handles the player's turn action.
+  * @return The new active Pokemon after the turn's action. Returns the original Pokemon if no change or the action failed.
+  */
+ private static Pokemon performPlayerTurn(Scanner scanner, Pokemon currentP1, Pokemon currentP2, List<Pokemon> p1Team) throws InterruptedException {
+  System.out.println("\n--- " + currentP1.name + "'s Turn (P1) ---");
+  currentP1.showStats(true);
+  currentP2.showStats(false);
+  System.out.println("-------------------------------------");
+  
+  System.out.println("Choose action category:");
+  System.out.println(" 1. Attack");
+  System.out.println(" 2. Bag");
+  System.out.println(" 3. Protect (1-turn shield)");
+  System.out.println(" 4. Mega Evolve");
+  System.out.println(" 5. Swap Pokémon");
+
+  int choice;
+  boolean actionSuccessful = false;
+  Pokemon activeP1 = currentP1; // The Pokémon that finishes the turn
+
+  while (!actionSuccessful) {
+   System.out.print("Enter choice (1-5): ");
+   if (scanner.hasNextInt()) {
+    choice = scanner.nextInt();
+    scanner.nextLine();
+
+    switch (choice) {
+     case 1: // Attack Menu
+        actionSuccessful = handleAttackMenu(scanner, activeP1, currentP2);
+        break;
+     
+     case 2: // Bag Menu
+        actionSuccessful = handleBagMenu(scanner, activeP1);
+        break;
+        
+     case 3: // Protect
+      if (activeP1.useProtect()) { // Check return value for success
+       actionSuccessful = true; 
+      }
+      break;
+      
+     case 4: // Mega Evolve
+      activeP1.lastActionWasProtect = false; // Reset Protect flag
+      activeP1.megaEvolve();
+      if (activeP1.isMegaEvolved) {
+        actionSuccessful = true;
+      }
+      break;
+      
+     case 5: // Swap
+      // handlePlayerSwap returns the NEW active Pokemon if successful
+      Pokemon nextP = handlePlayerSwap(scanner, activeP1, p1Team);
+      if (nextP != activeP1) {
+       // Update the references if a swap occurred
+       activeP1 = nextP;
+       actionSuccessful = true;
+      }
+      break;
+      
+     default:
+      System.out.println("Invalid choice. Try again.");
+    }
+   } else {
+    scanner.next();
+    System.out.println("Invalid input. Try again.");
+   }
+  }
+  return activeP1; // Return the (potentially new) active Pokemon
+ }
+
+ private static Pokemon performAITurn(Pokemon currentP2, Pokemon currentP1, List<Pokemon> p2Team, Random random) throws InterruptedException {
+  System.out.println("\n" + currentP2.name + "'s Turn (Automatic)!");
+  simulateDelay();
+
+  if (currentP2.status.equals("paralyzed") || currentP2.status.equals("sleep")) {
+   System.out.printf("%s is %s and cannot move!%n", currentP2.name, currentP2.status);
+   simulateDelay();
+   return currentP2;
+  }
+
+  // Mega Evolve Tactic
+  if (!currentP2.isMegaEvolved && currentP2.stamina >= 100 && currentP2.skill4UsedCount == 3) {
+   currentP2.lastActionWasProtect = false; // Reset Protect flag
+   currentP2.megaEvolve();
+   return currentP2; // Turn ends after Mega Evolve
+  }
+  
+  // Tactical Swap (Triggers if HP is 33% or less)
+  else if (currentP2.health <= (int)(currentP2.maxHealth * 0.33) && findNextAvailablePokemon(p2Team) != currentP2) {
+   // handleAISwap handles the lastActionWasProtect reset internally
+   return handleAISwap(currentP2, p2Team, "Critical Health");
+  }
+
+  // Potion Use Tactic (Respects limits, triggers if HP is 33% or less)
+  else if (currentP2.health <= (int)(currentP2.maxHealth * 0.33) && p2HealthPotionsRemaining > 0) {
+   currentP2.lastActionWasProtect = false; // Reset Protect flag
+   currentP2.usePotion("health", 50);
+   p2HealthPotionsRemaining--;
+  } else if (currentP2.stamina <= (int)(currentP2.maxStamina * 0.33) && p2ManaPotionsRemaining > 0) {
+   currentP2.lastActionWasProtect = false; // Reset Protect flag
+   currentP2.usePotion("mana", 50);
+   p2ManaPotionsRemaining--;
+  }
+  // Protect Tactic (20% chance if health is 40% or less AND not restricted)
+  else if (!currentP2.lastActionWasProtect && currentP2.health <= (int)(currentP2.maxHealth * 0.40) && random.nextInt(100) < 20) {
+   // useProtect handles the two-turn check internally
+   currentP2.useProtect(); 
+  }
+  // Normal Attack
+  else {
+   // Snorlax specific strategy: use Rest if low HP and available (Skill 2)
+   if (currentP2.originalName.equals("Snorlax") && currentP2.health <= (int)(currentP2.maxHealth * 0.5) && currentP2.stamina >= 50 && !currentP2.status.equals("sleep")) {
+       currentP2.skill2(currentP1); // Snorlax's skill 2 is Rest
+   }
+   // Prioritize Skill 4 if Mega Evolved or required uses are met
+   else if (currentP2.isMegaEvolved || currentP2.skill4UsedCount < 3 && currentP2.stamina >= 70) {
+    currentP2.skill4(currentP1);
+   } else if (currentP2.stamina >= 60) {
+    currentP2.skill3(currentP1);
+   } else if (currentP2.stamina >= 50) {
+    currentP2.skill2(currentP1);
+   } else if (currentP2.stamina >= 40) {
+    currentP2.skill1(currentP1);
+   } else if (currentP2.stamina < 40) { // If Stamina is low, use Tackle for recovery
+    currentP2.tackle(currentP1); // <<< AI uses Tackle
+   } else {
+    // If no stamina and no mana potions, skip turn
+    if (p2ManaPotionsRemaining > 0) {
+     currentP2.lastActionWasProtect = false; // Reset Protect flag
+     currentP2.usePotion("mana", 50);
+     p2ManaPotionsRemaining--;
+    } else {
+     currentP2.lastActionWasProtect = false; // Reset Protect flag even on skip
+     System.out.println(currentP2.name + " has no stamina or usable potions. Turn skipped.");
+    }
+   }
+  }
+  
+  return currentP2;
 }
 
+
+ public static void main(String[] args) throws InterruptedException {
+  Scanner scanner = new Scanner(System.in);
+  Random random = new Random();
+
+  System.out.println(" ╔══════════▣◎▣════════════╗ ");
+  System.out.println(" Welcome to Pokemon Team Battle ");
+  System.out.println(" ╚══════════▣◎▣════════════╝ ");
+
+  // 1. Team Selection
+  List<Pokemon> p1Team = choosePlayerTeam(scanner);
+  List<String> p1Names = new ArrayList<>();
+  for (Pokemon p : p1Team) {
+   p1Names.add(p.originalName);
+  }
+  List<Pokemon> p2Team = createAITeam(p1Names, random);
+
+  // 2. Initial Setup
+  Pokemon currentP1 = p1Team.get(0);
+  Pokemon currentP2 = p2Team.get(0);
+  System.out.printf("%n*** P1 sends out %s! P2 sends out %s! ***%n", currentP1.name, currentP2.name);
+  simulateDelay();
+  
+  // 3. Game Loop
+  while (findNextAvailablePokemon(p1Team) != null && findNextAvailablePokemon(p2Team) != null) {
+   
+   // Check for required switch (if active Pokemon fainted)
+   if (currentP1.isFainted) {
+    System.out.printf("%n*** %s fainted! P1 must swap! ***%n", currentP1.name);
+    // Force a swap. handlePlayerSwap returns the new active Pokémon.
+    currentP1 = handlePlayerSwap(scanner, currentP1, p1Team);
+    if (currentP1 == null) break; 
+   }
+   if (currentP2.isFainted) {
+    System.out.printf("%n*** %s fainted! P2 must swap! ***%n", currentP2.name);
+    currentP2 = handleAISwap(currentP2, p2Team, "Fainted");
+    if (currentP2 == null) break;
+   }
+
+   // P1 Turn: This now returns the active Pokémon (whether or not a swap occurred)
+   Pokemon nextP1 = performPlayerTurn(scanner, currentP1, currentP2, p1Team);
+   // Update currentP1 with the result of the turn (either the original P1 or the new, swapped-in P1)
+   currentP1 = nextP1; 
+   
+   if(currentP1.health <= 0) {
+       currentP1.isFainted = true;
+   }
+   
+   // Check win/loss condition after P1's action (Swap or Attack)
+   if (findNextAvailablePokemon(p2Team) == null) break;
+   if (findNextAvailablePokemon(p1Team) == null) break;
+   
+   // Advance P1's status (Clears Protect, advances Paralyzed/Blind duration)
+   advanceStatusDuration(currentP1);
+
+   // P2 Turn: The AI *always* gets its turn, whether P1 attacked or swapped.
+   currentP2 = performAITurn(currentP2, currentP1, p2Team, random);
+   
+   // Check win/loss condition after P2's turn
+   if (findNextAvailablePokemon(p1Team) == null) break;
+   if (findNextAvailablePokemon(p2Team) == null) break;
+
+   // Advance P2's status (Clears Protect, advances Paralyzed/Blind duration)
+   advanceStatusDuration(currentP2);
+   
+   simulateDelay();
+  }
+
+// 4. Game End
+  System.out.println("\n======================================");
+  if (findNextAvailablePokemon(p1Team) == null) {
+   System.out.println("🏆 P2 Wins! All P1 Pokémon have fainted! 🏆");
+  } else {
+   System.out.println("🏆 P1 Wins! All P2 Pokémon have fainted! 🏆");
+  }
+  System.out.println("======================================");
+  scanner.close();
+ }
+}
